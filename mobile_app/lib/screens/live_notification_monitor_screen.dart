@@ -77,6 +77,73 @@ class _LiveNotificationMonitorScreenState extends State<LiveNotificationMonitorS
     }
   }
 
+    void _showGeminiKeyDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.auto_awesome_rounded, color: RakshanTheme.accentPurple, size: 24),
+            SizedBox(width: 10),
+            Text('Gemini AI Intelligence', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Paste your Google Gemini API Key below to enable deep semantic LLM reasoning for subtle, disguised, or violent cyber threats.',
+              style: TextStyle(fontSize: 12, color: RakshanTheme.textMuted, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'AIzaSy...',
+                labelText: 'Gemini API Key',
+                filled: true,
+                fillColor: RakshanTheme.surfaceMuted,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: RakshanTheme.primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              final key = controller.text.trim();
+              if (key.isNotEmpty) {
+                await ApiService.setGeminiApiKey(key);
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      backgroundColor: RakshanTheme.safeGreen,
+                      content: Text('✓ Gemini AI Model Active for Real-Time Threat Analysis!'),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save & Activate'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,6 +151,11 @@ class _LiveNotificationMonitorScreenState extends State<LiveNotificationMonitorS
       appBar: AppBar(
         title: const Text('Real-Time Notification Shield'),
         actions: [
+          IconButton(
+            tooltip: 'Configure Gemini AI Key',
+            icon: const Icon(Icons.auto_awesome_rounded, color: RakshanTheme.accentPurple),
+            onPressed: _showGeminiKeyDialog,
+          ),
           IconButton(
             tooltip: 'Refresh Status',
             icon: const Icon(Icons.refresh_rounded),
@@ -336,34 +408,40 @@ class _LiveNotificationMonitorScreenState extends State<LiveNotificationMonitorS
                           children: [
                             // App Header & Risk Score Pill
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: RakshanTheme.primaryLight,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        item['app_name'] ?? 'App',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 11,
-                                          color: RakshanTheme.primaryBlue,
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: RakshanTheme.primaryLight,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          item['app_name'] ?? 'App',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 11,
+                                            color: RakshanTheme.primaryBlue,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'From: ${item['sender'] ?? 'Unknown'}',
-                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: RakshanTheme.textPrimary),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'From: ${item['sender'] ?? 'Unknown'}',
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: RakshanTheme.textPrimary),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: scoreColor.withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(20),
@@ -376,16 +454,16 @@ class _LiveNotificationMonitorScreenState extends State<LiveNotificationMonitorS
                                         'AI RISK: ${score.toStringAsFixed(0)}/100',
                                         style: TextStyle(
                                           color: scoreColor,
-                                          fontSize: 11,
+                                          fontSize: 10.5,
                                           fontWeight: FontWeight.w900,
                                         ),
                                       ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: 3),
                                       Text(
                                         '($severity)',
                                         style: TextStyle(
                                           color: scoreColor,
-                                          fontSize: 10,
+                                          fontSize: 9.5,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),

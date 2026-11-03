@@ -371,3 +371,19 @@ async def scan_child_games(payload: dict):
     apps = payload.get("apps", [])
     report = game_intel_service.scan_apps(apps)
     return report
+
+@router.post("/config/gemini-key")
+async def set_gemini_api_key(payload: dict):
+    key = payload.get("api_key", "").strip()
+    if key:
+        gemini_service.set_api_key(key)
+        return {"success": True, "message": "Gemini API Key successfully set and active!", "has_key": True}
+    return {"success": False, "message": "No key provided", "has_key": gemini_service.has_api_key()}
+
+@router.get("/config/ai-status")
+async def get_ai_status():
+    return {
+        "gemini_active": gemini_service.has_api_key(),
+        "gemini_model": gemini_service.model,
+        "multi_agent_heuristic_active": True
+    }

@@ -463,9 +463,22 @@ class ApiService {
     }
     groomingScore = groomingScore.clamp(0.0, 100.0);
 
-    // 2. Bullying
+    // 2. Bullying & Violent Threats
     double bullyingScore = 0.0;
     List<String> bullyingIndicators = [];
+    final violentThreats = [
+      "killing you", "kill you", "will kill you", "gonna kill you", "going to kill you",
+      "murder you", "beat you", "break your face", "cut you", "stab you", "shoot you",
+      "destroy you", "hurt you", "mar dalunga", "jaan se mar", "thok dunga", "marunga",
+      "i am killing", "i will kill"
+    ];
+    for (final v in violentThreats) {
+      if (lower.contains(v)) {
+        bullyingIndicators.add('Direct violent physical/death threat: "$v"');
+        bullyingScore += 90.0;
+        break;
+      }
+    }
     final severeBully = ["kill yourself", "go die", "nobody likes you", "loser", "ugly", "worthless", "freak", "everyone hates you"];
     for (final s in severeBully) {
       if (lower.contains(s)) {
@@ -683,6 +696,19 @@ class ApiService {
         }
       ]
     };
+  }
+
+  static Future<bool> setGeminiApiKey(String key) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/monitor/config/gemini-key'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'api_key': key.trim()}),
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<List<dynamic>> getThreatCatalog() async {

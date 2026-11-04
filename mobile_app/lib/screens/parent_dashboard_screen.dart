@@ -47,11 +47,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    await ApiService.fetchDeviceStatus();
     final data = await ApiService.getDashboardOverview();
-    setState(() {
-      _overviewData = data;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _overviewData = data;
+        _isLoading = false;
+      });
+    }
   }
 
   void _openLiveStudio() async {
@@ -72,27 +75,34 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [RakshanTheme.primaryBlue, RakshanTheme.secondaryCyan],
                 ),
               ),
               child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Rakshan Parent Portal',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                ),
-                Text(
-                  ApiService.currentUser?['full_name'] ?? 'Rajesh Sharma',
-                  style: const TextStyle(fontSize: 11, color: RakshanTheme.textMuted, fontWeight: FontWeight.w600),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Rakshan Parent Portal',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                  ),
+                  Text(
+                    ApiService.currentUser?['full_name'] ?? 'Rajesh Sharma',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: RakshanTheme.textMuted, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -117,21 +127,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               );
             },
           ),
-          IconButton(
-            tooltip: 'Live AI Threat Studio',
-            icon: const Icon(Icons.psychology_rounded, color: RakshanTheme.primaryBlue),
-            onPressed: _openLiveStudio,
-          ),
-          IconButton(
-            tooltip: 'Pair Device',
-            icon: const Icon(Icons.qr_code_rounded, color: RakshanTheme.textPrimary),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PairingScreen(isParentView: true)),
-              );
-            },
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded, color: RakshanTheme.textPrimary),
             onSelected: (val) {
@@ -140,14 +135,54 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   context,
                   MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
                 );
+              } else if (val == 'studio') {
+                _openLiveStudio();
+              } else if (val == 'pair') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PairingScreen(isParentView: true)),
+                );
+              } else if (val == 'sync') {
+                _loadData();
               }
             },
             itemBuilder: (ctx) => [
               const PopupMenuItem(
+                value: 'studio',
+                child: Row(
+                  children: [
+                    Icon(Icons.psychology_rounded, size: 18, color: RakshanTheme.primaryBlue),
+                    SizedBox(width: 8),
+                    Text('Live AI Threat Studio'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'pair',
+                child: Row(
+                  children: [
+                    Icon(Icons.qr_code_rounded, size: 18, color: RakshanTheme.textPrimary),
+                    SizedBox(width: 8),
+                    Text('Pair Child Device'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'sync',
+                child: Row(
+                  children: [
+                    Icon(Icons.sync_rounded, size: 18, color: RakshanTheme.safeGreen),
+                    SizedBox(width: 8),
+                    Text('Refresh Live Status'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
                 value: 'switch',
                 child: Row(
                   children: [
-                    Icon(Icons.swap_horiz_rounded, size: 18, color: RakshanTheme.primaryBlue),
+                    Icon(Icons.swap_horiz_rounded, size: 18, color: RakshanTheme.criticalRed),
                     SizedBox(width: 8),
                     Text('Switch Role / Logout'),
                   ],
@@ -484,8 +519,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   icon: Icons.wifi_off_rounded,
                   isActive: ApiService.isInternetPaused,
                   activeColor: RakshanTheme.criticalRed,
-                  onTap: () {
-                    setState(() => ApiService.toggleInternetPause());
+                  onTap: () async {
+                    await ApiService.toggleInternetPause();
+                    if (mounted) setState(() {});
                     _showActionSnackbar(
                       ApiService.isInternetPaused
                           ? 'Child device Internet paused remotely!'
@@ -500,8 +536,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   icon: Icons.lock_outline_rounded,
                   isActive: ApiService.isDeviceLocked,
                   activeColor: RakshanTheme.highOrange,
-                  onTap: () {
-                    setState(() => ApiService.toggleDeviceLock());
+                  onTap: () async {
+                    await ApiService.toggleDeviceLock();
+                    if (mounted) setState(() {});
                     _showActionSnackbar(
                       ApiService.isDeviceLocked
                           ? 'Child screen locked remotely.'
@@ -516,8 +553,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   icon: Icons.bedtime_outlined,
                   isActive: ApiService.isBedtimeModeActive,
                   activeColor: RakshanTheme.accentPurple,
-                  onTap: () {
-                    setState(() => ApiService.toggleBedtimeMode());
+                  onTap: () async {
+                    await ApiService.toggleBedtimeMode();
+                    if (mounted) setState(() {});
                     _showActionSnackbar(
                       ApiService.isBedtimeModeActive
                           ? 'Bedtime curfew mode active.'
@@ -614,6 +652,73 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Instant Remote Overrides
+          const Text(
+            'INSTANT REMOTE ENFORCEMENT',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: RakshanTheme.textMuted,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _RemoteActionCard(
+                title: ApiService.isInternetPaused ? 'Resume Internet' : 'Pause Internet',
+                subtitle: ApiService.isInternetPaused ? 'Blocked' : 'Active',
+                icon: Icons.wifi_off_rounded,
+                isActive: ApiService.isInternetPaused,
+                activeColor: RakshanTheme.criticalRed,
+                onTap: () async {
+                  await ApiService.toggleInternetPause();
+                  if (mounted) setState(() {});
+                  _showActionSnackbar(
+                    ApiService.isInternetPaused
+                        ? 'Child device Internet paused remotely!'
+                        : 'Child device Internet resumed.',
+                  );
+                },
+              ),
+              const SizedBox(width: 10),
+              _RemoteActionCard(
+                title: ApiService.isDeviceLocked ? 'Unlock Screen' : 'Lock Screen',
+                subtitle: ApiService.isDeviceLocked ? 'Locked' : 'Unlocked',
+                icon: Icons.lock_outline_rounded,
+                isActive: ApiService.isDeviceLocked,
+                activeColor: RakshanTheme.highOrange,
+                onTap: () async {
+                  await ApiService.toggleDeviceLock();
+                  if (mounted) setState(() {});
+                  _showActionSnackbar(
+                    ApiService.isDeviceLocked
+                        ? 'Child screen locked remotely.'
+                        : 'Child screen unlocked.',
+                  );
+                },
+              ),
+              const SizedBox(width: 10),
+              _RemoteActionCard(
+                title: 'Bedtime Curfew',
+                subtitle: ApiService.isBedtimeModeActive ? 'Active' : 'Off',
+                icon: Icons.bedtime_outlined,
+                isActive: ApiService.isBedtimeModeActive,
+                activeColor: RakshanTheme.accentPurple,
+                onTap: () async {
+                  await ApiService.toggleBedtimeMode();
+                  if (mounted) setState(() {});
+                  _showActionSnackbar(
+                    ApiService.isBedtimeModeActive
+                        ? 'Bedtime curfew mode active.'
+                        : 'Bedtime mode disabled.',
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
           // Device Hardware Card
           Container(
             padding: const EdgeInsets.all(18),
@@ -697,6 +802,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   onChanged: (val) {
                     setState(() => ApiService.dailyScreenTimeLimitHours = val);
                   },
+                  onChangeEnd: (val) async {
+                    await ApiService.sendDeviceControlCommand(
+                      'SET_SCREEN_TIME_LIMIT',
+                      payload: {'limit_hours': val},
+                    );
+                    _showActionSnackbar('Daily limit set to ${val.toStringAsFixed(1)} hours.');
+                  },
                 ),
                 Text(
                   '${ApiService.currentScreenTimeUsedHours.toStringAsFixed(1)}h consumed today • ${(ApiService.dailyScreenTimeLimitHours - ApiService.currentScreenTimeUsedHours).toStringAsFixed(1)}h remaining',
@@ -730,8 +842,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   ),
                   value: !isBlocked, // true = allowed, false = blocked
                   activeThumbColor: RakshanTheme.safeGreen,
-                  onChanged: (allowed) {
-                    setState(() => ApiService.toggleAppBlock(entry.key));
+                  onChanged: (allowed) async {
+                    await ApiService.toggleAppBlock(entry.key);
+                    if (mounted) setState(() {});
                     _showActionSnackbar(allowed ? '${entry.key} allowed on child phone.' : '${entry.key} blocked on child phone!');
                   },
                 );

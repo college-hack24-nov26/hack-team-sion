@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'live_notification_monitor_screen.dart';
 import 'suspicious_games_screen.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ class _ChildShieldScreenState extends State<ChildShieldScreen>
   late AnimationController _animController;
   late Animation<double> _pulseAnimation;
   bool _isSosActive = false;
+  Timer? _statusTimer;
 
   @override
   void initState() {
@@ -30,10 +32,22 @@ class _ChildShieldScreenState extends State<ChildShieldScreen>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.07).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
+
+    // Initial status fetch & periodic polling every 2 seconds
+    _syncStatus();
+    _statusTimer = Timer.periodic(const Duration(seconds: 2), (_) => _syncStatus());
+  }
+
+  Future<void> _syncStatus() async {
+    final status = await ApiService.fetchDeviceStatus();
+    if (status != null && mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _statusTimer?.cancel();
     _animController.dispose();
     super.dispose();
   }
@@ -232,78 +246,95 @@ class _ChildShieldScreenState extends State<ChildShieldScreen>
               );
             },
           ),
+          IconButton(
+            tooltip: 'Refresh Status',
+            icon: const Icon(Icons.sync_rounded, color: RakshanTheme.textPrimary),
+            onPressed: _syncStatus,
+          ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 12),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Real-time Internet Paused warning banner
+                  if (ApiService.isInternetPaused) ...[
+                    _buildInternetPausedBanner(),
+                    const SizedBox(height: 14),
+                  ],
 
-              // Animated Shield Graphic
-              ScaleTransition(
-                scale: _pulseAnimation,
-                child: Container(
-                  width: 104,
-                  height: 104,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: RakshanTheme.safeGreenLight,
-                    border: Border.all(color: RakshanTheme.safeGreen, width: 2.2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: RakshanTheme.safeGreen.withOpacity(0.2),
-                        blurRadius: 28,
-                        offset: const Offset(0, 8),
+                  const SizedBox(height: 8),
+
+                  // Animated Shield Graphic
+                  ScaleTransition(
+                    scale: _pulseAnimation,
+                    child: Container(
+                      width: 104,
+                      height: 104,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: RakshanTheme.safeGreenLight,
+                        border: Border.all(color: RakshanTheme.safeGreen, width: 2.2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: RakshanTheme.safeGreen.withOpacity(0.2),
+                            blurRadius: 28,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.verified_user_rounded,
+                        color: RakshanTheme.safeGreen,
+                        size: 56,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  const Text(
+                    'Rakshan Shield Active',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: RakshanTheme.textPrimary,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: RakshanTheme.safeGreen,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Real-Time Cyber Interceptor Running',
+                        style: TextStyle(
+                          color: RakshanTheme.safeGreen,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.verified_user_rounded,
-                    color: RakshanTheme.safeGreen,
-                    size: 56,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
+                  const SizedBox(height: 14),
 
-              const Text(
-                'Rakshan Shield Active',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: RakshanTheme.textPrimary,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: RakshanTheme.safeGreen,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Real-Time Background Cyber Interceptor Running',
-                    style: TextStyle(
-                      color: RakshanTheme.safeGreen,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
+                  // Real-time Live Remote Status Pills (Internet / Screen Lock / Bedtime)
+                  _buildLiveStatusChips(),
+                  const SizedBox(height: 18),
 
-              // Guardian Binding Info
+                  // Guardian Binding Info
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
@@ -677,6 +708,481 @@ class _ChildShieldScreenState extends State<ChildShieldScreen>
             ],
           ),
         ),
+      ),
+      // Bedtime Curfew Overlay (if active and screen not already locked)
+      if (ApiService.isBedtimeModeActive && !ApiService.isDeviceLocked)
+        Positioned.fill(child: _buildBedtimeCurfewOverlay()),
+
+      // Remote Guardian Lock Screen Barrier (highest priority overlay)
+      if (ApiService.isDeviceLocked)
+        Positioned.fill(child: _buildRemoteLockOverlay()),
+    ],
+  ),
+);
+  }
+
+  // --- Real-Time Remote Enforcement UI Components ---
+
+  Widget _buildInternetPausedBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: RakshanTheme.criticalRedLight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RakshanTheme.criticalRed.withOpacity(0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: RakshanTheme.criticalRed.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: RakshanTheme.criticalRed,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'INTERNET PAUSED BY GUARDIAN',
+                  style: TextStyle(
+                    color: RakshanTheme.criticalRed,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Online access suspended remotely. Emergency voice calls remain accessible.',
+                  style: TextStyle(color: RakshanTheme.textPrimary, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveStatusChips() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RakshanTheme.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _statusPill(
+            icon: ApiService.isInternetPaused ? Icons.wifi_off_rounded : Icons.wifi_rounded,
+            title: ApiService.isInternetPaused ? 'Net: Paused' : 'Net: Active',
+            color: ApiService.isInternetPaused ? RakshanTheme.criticalRed : RakshanTheme.safeGreen,
+          ),
+          Container(width: 1, height: 22, color: RakshanTheme.cardBorder),
+          _statusPill(
+            icon: ApiService.isDeviceLocked ? Icons.lock_rounded : Icons.lock_open_rounded,
+            title: ApiService.isDeviceLocked ? 'Screen: Locked' : 'Screen: OK',
+            color: ApiService.isDeviceLocked ? RakshanTheme.highOrange : RakshanTheme.safeGreen,
+          ),
+          Container(width: 1, height: 22, color: RakshanTheme.cardBorder),
+          _statusPill(
+            icon: Icons.bedtime_rounded,
+            title: ApiService.isBedtimeModeActive ? 'Bedtime: On' : 'Bedtime: Off',
+            color: ApiService.isBedtimeModeActive ? RakshanTheme.accentPurple : RakshanTheme.textMuted,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusPill({required IconData icon, required String title, required Color color}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRemoteLockOverlay() {
+    return Container(
+      color: const Color(0xFF0F172A).withOpacity(0.97),
+      width: double.infinity,
+      height: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: RakshanTheme.criticalRed.withOpacity(0.18),
+                border: Border.all(color: RakshanTheme.criticalRed, width: 3),
+              ),
+              child: const Icon(Icons.lock_rounded, color: RakshanTheme.criticalRed, size: 48),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'DEVICE LOCKED BY GUARDIAN',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              ApiService.lockMessage ?? 'Screen access temporarily suspended by Rajesh Sharma.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 26),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.shield_rounded, color: RakshanTheme.safeGreen, size: 22),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Emergency services and parent contacts remain accessible at all times.',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.call_rounded, color: Colors.white),
+                label: const Text('Call Guardian: Rajesh Sharma', style: TextStyle(fontWeight: FontWeight.w800)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: RakshanTheme.safeGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Calling Guardian Rajesh Sharma (+91 98765 43210)...')),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.pin_rounded, color: Colors.white70),
+                label: const Text('Parent PIN Override', style: TextStyle(color: Colors.white70)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.white24),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: _showPinUnlockDialog,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBedtimeCurfewOverlay() {
+    return Container(
+      color: const Color(0xFF090D1A).withOpacity(0.97),
+      width: double.infinity,
+      height: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: RakshanTheme.accentPurple.withOpacity(0.2),
+                border: Border.all(color: RakshanTheme.accentPurple, width: 2.5),
+              ),
+              child: const Icon(Icons.bedtime_rounded, color: RakshanTheme.accentPurple, size: 48),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'BEDTIME CURFEW ACTIVE',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Night rest hours enforced by Rajesh Sharma.\nScreen apps and alerts are silenced until morning.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 26),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.nightlight_round, color: RakshanTheme.accentPurple, size: 22),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Healthy sleep habits protect against late-night cyber predators and maintain emotional wellness.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.call_rounded, color: Colors.white),
+                label: const Text('Call Guardian / Emergency', style: TextStyle(fontWeight: FontWeight.w800)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: RakshanTheme.accentPurple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Dialing Guardian (+91 98765 43210)...')),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _showBedtimeOverrideDialog,
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.white24),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Parent Override PIN', style: TextStyle(color: Colors.white70)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPinUnlockDialog() {
+    final pinCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.shield_rounded, color: RakshanTheme.highOrange),
+            SizedBox(width: 8),
+            Text('Guardian PIN Override', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the 4-digit Parent Master PIN to temporarily bypass screen enforcement.\n(Default Demo PIN: 1234)',
+              style: TextStyle(fontSize: 12, color: RakshanTheme.textMuted),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: pinCtrl,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              autofocus: true,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 22, letterSpacing: 8, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: RakshanTheme.surfaceMuted,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: RakshanTheme.primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              if (pinCtrl.text.trim() == '1234' || pinCtrl.text.trim() == '0000') {
+                Navigator.pop(ctx);
+                await ApiService.toggleDeviceLock();
+                if (mounted) setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: RakshanTheme.safeGreen,
+                    content: Text('✓ Guardian PIN verified! Screen unlocked.'),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: RakshanTheme.criticalRed,
+                    content: Text('Invalid Guardian PIN! Contact parent.'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Verify & Unlock'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBedtimeOverrideDialog() {
+    final pinCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.bedtime_rounded, color: RakshanTheme.accentPurple),
+            SizedBox(width: 8),
+            Text('Bedtime Override', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter Parent Master PIN to pause bedtime curfew.\n(Default Demo PIN: 1234)',
+              style: TextStyle(fontSize: 12, color: RakshanTheme.textMuted),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: pinCtrl,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              autofocus: true,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 22, letterSpacing: 8, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: RakshanTheme.surfaceMuted,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: RakshanTheme.accentPurple,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              if (pinCtrl.text.trim() == '1234' || pinCtrl.text.trim() == '0000') {
+                Navigator.pop(ctx);
+                await ApiService.toggleBedtimeMode(enable: false);
+                if (mounted) setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: RakshanTheme.safeGreen,
+                    content: Text('✓ Bedtime curfew paused by guardian override.'),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: RakshanTheme.criticalRed,
+                    content: Text('Invalid Guardian PIN!'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Override Curfew'),
+          ),
+        ],
       ),
     );
   }

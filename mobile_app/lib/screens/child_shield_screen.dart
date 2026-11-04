@@ -33,9 +33,9 @@ class _ChildShieldScreenState extends State<ChildShieldScreen>
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
 
-    // Initial status fetch & periodic polling every 2 seconds
+    // Initial status fetch & periodic polling every 1.5 seconds
     _syncStatus();
-    _statusTimer = Timer.periodic(const Duration(seconds: 2), (_) => _syncStatus());
+    _statusTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) => _syncStatus());
   }
 
   Future<void> _syncStatus() async {

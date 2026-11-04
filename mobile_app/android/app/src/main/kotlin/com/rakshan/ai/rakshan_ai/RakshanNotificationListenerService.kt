@@ -65,33 +65,37 @@ class RakshanNotificationListenerService : NotificationListenerService() {
 
         // 2. Transmit to Python Multi-Agent Backend in background thread
         thread {
-            try {
-                val url = URL("http://127.0.0.1:8000/api/v1/monitor/ingest")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/json; utf-8")
-                conn.setRequestProperty("Accept", "application/json")
-                conn.doOutput = true
-                conn.connectTimeout = 3000
-                conn.readTimeout = 4000
+            val endpoints = listOf("http://127.0.0.1:8000/api/v1/monitor/ingest", "http://192.168.1.231:8000/api/v1/monitor/ingest")
+            for (ep in endpoints) {
+                try {
+                    val url = URL(ep)
+                    val conn = url.openConnection() as HttpURLConnection
+                    conn.requestMethod = "POST"
+                    conn.setRequestProperty("Content-Type", "application/json; utf-8")
+                    conn.setRequestProperty("Accept", "application/json")
+                    conn.doOutput = true
+                    conn.connectTimeout = 1500
+                    conn.readTimeout = 2500
 
-                val json = JSONObject()
-                json.put("device_id", "DEV-AARAV-SAMSUNG-S23")
-                json.put("app_name", readableApp)
-                json.put("package_name", pkgName)
-                json.put("sender", if (title.isBlank()) "Unknown Contact" else title)
-                json.put("text_content", text)
-                json.put("context_type", "incoming_notification")
+                    val json = JSONObject()
+                    json.put("device_id", "DEV-AARAV-SAMSUNG-S23")
+                    json.put("app_name", readableApp)
+                    json.put("package_name", pkgName)
+                    json.put("sender", if (title.isBlank()) "Unknown Contact" else title)
+                    json.put("text_content", text)
+                    json.put("context_type", "incoming_notification")
 
-                val writer = OutputStreamWriter(conn.outputStream)
-                writer.write(json.toString())
-                writer.flush()
-                writer.close()
+                    val writer = OutputStreamWriter(conn.outputStream)
+                    writer.write(json.toString())
+                    writer.flush()
+                    writer.close()
 
-                val code = conn.responseCode
-                Log.d(TAG, "Sent notification to backend -> HTTP $code")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send notification to backend: ${e.message}")
+                    val code = conn.responseCode
+                    Log.d(TAG, "Sent notification to $ep -> HTTP $code")
+                    if (code == 200) break
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to reach $ep: ${e.message}")
+                }
             }
         }
     }

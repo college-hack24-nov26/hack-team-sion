@@ -1,3 +1,4 @@
+import 'child_shield_screen.dart';
 import 'live_notification_monitor_screen.dart';
 import 'suspicious_games_screen.dart';
 import 'package:flutter/material.dart';
@@ -500,6 +501,95 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             ),
             const SizedBox(height: 18),
 
+            // Live 2-Device Demo & Role Quick-Switcher
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: RakshanTheme.primaryLight,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: RakshanTheme.primaryBlue.withOpacity(0.25)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.swap_horiz_rounded, color: RakshanTheme.primaryBlue, size: 20),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Live 2-Device Demo Mode',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: RakshanTheme.primaryBlue),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: RakshanTheme.primaryBlue,
+                      foregroundColor: Colors.white,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.phone_android_rounded, size: 14),
+                    label: const Text('Open Child Shield', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ChildShieldScreen()));
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            // Active Restriction Banner (if any restriction is active)
+            if (ApiService.isDeviceLocked || ApiService.isInternetPaused || ApiService.isBedtimeModeActive) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: RakshanTheme.criticalRedLight,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: RakshanTheme.criticalRed.withOpacity(0.6), width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shield_rounded, color: RakshanTheme.criticalRed, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'ACTIVE ENFORCEMENT ON CHILD PHONE:',
+                            style: TextStyle(color: RakshanTheme.criticalRed, fontWeight: FontWeight.w900, fontSize: 11),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            [
+                              if (ApiService.isDeviceLocked) '🔒 Screen Locked',
+                              if (ApiService.isInternetPaused) '🚫 Internet Paused',
+                              if (ApiService.isBedtimeModeActive) '🌙 Bedtime Curfew',
+                            ].join(' • '),
+                            style: const TextStyle(color: RakshanTheme.textPrimary, fontWeight: FontWeight.w800, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: RakshanTheme.criticalRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ChildShieldScreen()));
+                      },
+                      child: const Text('View Child', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // Remote Controller Quick Action Switches
             const Text(
               'REMOTE DEVICE CONTROLS',
@@ -522,11 +612,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   onTap: () async {
                     await ApiService.toggleInternetPause();
                     if (mounted) setState(() {});
-                    _showActionSnackbar(
-                      ApiService.isInternetPaused
-                          ? 'Child device Internet paused remotely!'
-                          : 'Child device Internet resumed.',
-                    );
+                    _showInternetActionSheet(ApiService.isInternetPaused);
                   },
                 ),
                 const SizedBox(width: 10),
@@ -539,11 +625,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   onTap: () async {
                     await ApiService.toggleDeviceLock();
                     if (mounted) setState(() {});
-                    _showActionSnackbar(
-                      ApiService.isDeviceLocked
-                          ? 'Child screen locked remotely.'
-                          : 'Child screen unlocked.',
-                    );
+                    _showLockActionSheet(ApiService.isDeviceLocked);
                   },
                 ),
                 const SizedBox(width: 10),
@@ -556,11 +638,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   onTap: () async {
                     await ApiService.toggleBedtimeMode();
                     if (mounted) setState(() {});
-                    _showActionSnackbar(
-                      ApiService.isBedtimeModeActive
-                          ? 'Bedtime curfew mode active.'
-                          : 'Bedtime mode disabled.',
-                    );
+                    _showBedtimeActionSheet(ApiService.isBedtimeModeActive);
                   },
                 ),
               ],
@@ -674,11 +752,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 onTap: () async {
                   await ApiService.toggleInternetPause();
                   if (mounted) setState(() {});
-                  _showActionSnackbar(
-                    ApiService.isInternetPaused
-                        ? 'Child device Internet paused remotely!'
-                        : 'Child device Internet resumed.',
-                  );
+                  _showInternetActionSheet(ApiService.isInternetPaused);
                 },
               ),
               const SizedBox(width: 10),
@@ -691,11 +765,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 onTap: () async {
                   await ApiService.toggleDeviceLock();
                   if (mounted) setState(() {});
-                  _showActionSnackbar(
-                    ApiService.isDeviceLocked
-                        ? 'Child screen locked remotely.'
-                        : 'Child screen unlocked.',
-                  );
+                  _showLockActionSheet(ApiService.isDeviceLocked);
                 },
               ),
               const SizedBox(width: 10),
@@ -708,11 +778,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 onTap: () async {
                   await ApiService.toggleBedtimeMode();
                   if (mounted) setState(() {});
-                  _showActionSnackbar(
-                    ApiService.isBedtimeModeActive
-                        ? 'Bedtime curfew mode active.'
-                        : 'Bedtime mode disabled.',
-                  );
+                  _showBedtimeActionSheet(ApiService.isBedtimeModeActive);
                 },
               ),
             ],
@@ -944,6 +1010,231 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               );
             }),
         ],
+      ),
+    );
+  }
+
+  void _showLockActionSheet(bool isLocked) {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: isLocked ? RakshanTheme.criticalRedLight : RakshanTheme.safeGreenLight,
+                shape: BoxShape.circle,
+                border: Border.all(color: isLocked ? RakshanTheme.criticalRed : RakshanTheme.safeGreen, width: 2),
+              ),
+              child: Icon(
+                isLocked ? Icons.lock_rounded : Icons.lock_open_rounded,
+                color: isLocked ? RakshanTheme.criticalRed : RakshanTheme.safeGreen,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              isLocked ? 'CHILD SCREEN LOCKED REMOTELY!' : 'CHILD SCREEN UNLOCKED!',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: RakshanTheme.textPrimary),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isLocked
+                  ? 'Real-time lock command dispatched to Aarav\'s device via Rakshan Gateway.\nThe child screen is completely frozen until guardian unblocks or emergency PIN (1234) is entered.'
+                  : 'Remote lock released. Child screen is now restored to normal.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: RakshanTheme.textMuted, fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            if (isLocked)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.phone_android_rounded, color: Colors.white, size: 20),
+                  label: const Text('Open / Test Locked Child Screen Now', style: TextStyle(fontWeight: FontWeight.w800)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: RakshanTheme.criticalRed,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChildShieldScreen()));
+                  },
+                ),
+              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Dismiss', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showInternetActionSheet(bool isPaused) {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: isPaused ? RakshanTheme.criticalRedLight : RakshanTheme.safeGreenLight,
+                shape: BoxShape.circle,
+                border: Border.all(color: isPaused ? RakshanTheme.criticalRed : RakshanTheme.safeGreen, width: 2),
+              ),
+              child: Icon(
+                isPaused ? Icons.wifi_off_rounded : Icons.wifi_rounded,
+                color: isPaused ? RakshanTheme.criticalRed : RakshanTheme.safeGreen,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              isPaused ? 'INTERNET CONNECTIVITY PAUSED!' : 'INTERNET CONNECTIVITY RESTORED!',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: RakshanTheme.textPrimary),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isPaused
+                  ? 'All Wi-Fi and mobile data browsing, online multiplayer games, and social media traffic suspended remotely on child device.'
+                  : 'Internet access resumed. Standard cyber monitoring remains active.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: RakshanTheme.textMuted, fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            if (isPaused)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.phone_android_rounded, color: Colors.white, size: 20),
+                  label: const Text('View Child Screen with Internet Blocked', style: TextStyle(fontWeight: FontWeight.w800)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: RakshanTheme.criticalRed,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChildShieldScreen()));
+                  },
+                ),
+              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Dismiss', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBedtimeActionSheet(bool isBedtime) {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: isBedtime ? RakshanTheme.accentPurple.withOpacity(0.15) : RakshanTheme.surfaceMuted,
+                shape: BoxShape.circle,
+                border: Border.all(color: isBedtime ? RakshanTheme.accentPurple : RakshanTheme.cardBorder, width: 2),
+              ),
+              child: Icon(
+                Icons.bedtime_rounded,
+                color: isBedtime ? RakshanTheme.accentPurple : RakshanTheme.textMuted,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              isBedtime ? 'BEDTIME CURFEW ACTIVATED!' : 'BEDTIME CURFEW DISABLED!',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: RakshanTheme.textPrimary),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isBedtime
+                  ? 'Scheduled night rest mode enforced. Screen dimmed with calming night overlay; non-emergency notifications silenced.'
+                  : 'Night curfew turned off. Standard daily schedule resumed.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: RakshanTheme.textMuted, fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            if (isBedtime)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.nightlight_round, color: Colors.white, size: 20),
+                  label: const Text('Preview Bedtime Night Screen', style: TextStyle(fontWeight: FontWeight.w800)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: RakshanTheme.accentPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChildShieldScreen()));
+                  },
+                ),
+              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Dismiss', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

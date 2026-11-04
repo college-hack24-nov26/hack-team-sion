@@ -4,7 +4,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Official Live Ngrok Production Backend
+  // Candidate backend endpoints (USB adb reverse, Wi-Fi LAN IP, Emulator)
+  static List<String> serverEndpoints = [
+    'http://127.0.0.1:8000/api/v1',
+    'http://192.168.1.231:8000/api/v1',
+    'http://10.0.2.2:8000/api/v1',
+  ];
   static String baseUrl = 'http://127.0.0.1:8000/api/v1';
   static String? authToken;
   static Map<String, dynamic>? currentUser;
@@ -382,70 +387,76 @@ class ApiService {
 
   /// Dispatch remote control command to FastAPI Backend (/api/v1/monitor/device-control)
   static Future<bool> sendDeviceControlCommand(String command, {Map<String, dynamic>? payload}) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/monitor/device-control'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'device_id': activeChildDeviceId,
-          'command': command,
-          'payload': payload ?? {},
-        }),
-      ).timeout(const Duration(seconds: 4));
+    final endpointsToTry = [baseUrl, ...serverEndpoints.where((u) => u != baseUrl)];
+    for (final endpoint in endpointsToTry) {
+      try {
+        final response = await http.post(
+          Uri.parse('$endpoint/monitor/device-control'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'device_id': activeChildDeviceId,
+            'command': command,
+            'payload': payload ?? {},
+          }),
+        ).timeout(const Duration(milliseconds: 1800));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['updated_state'] != null && data['updated_state'] is Map) {
-          final st = data['updated_state'] as Map<String, dynamic>;
-          if (st.containsKey('is_locked')) isDeviceLocked = st['is_locked'] == true;
-          if (st.containsKey('lock_message')) lockMessage = st['lock_message'];
-          if (st.containsKey('is_internet_paused')) isInternetPaused = st['is_internet_paused'] == true;
-          if (st.containsKey('is_bedtime_mode')) isBedtimeModeActive = st['is_bedtime_mode'] == true;
-          if (st['blocked_apps'] != null && st['blocked_apps'] is Map) {
-            (st['blocked_apps'] as Map).forEach((k, v) {
-              appBlockStatuses[k.toString()] = v == true;
-            });
+        if (response.statusCode == 200) {
+          baseUrl = endpoint; // remember verified endpoint
+          final data = jsonDecode(response.body);
+          if (data['updated_state'] != null && data['updated_state'] is Map) {
+            final st = data['updated_state'] as Map<String, dynamic>;
+            if (st.containsKey('is_locked')) isDeviceLocked = st['is_locked'] == true;
+            if (st.containsKey('lock_message')) lockMessage = st['lock_message'];
+            if (st.containsKey('is_internet_paused')) isInternetPaused = st['is_internet_paused'] == true;
+            if (st.containsKey('is_bedtime_mode')) isBedtimeModeActive = st['is_bedtime_mode'] == true;
+            if (st['blocked_apps'] != null && st['blocked_apps'] is Map) {
+              (st['blocked_apps'] as Map).forEach((k, v) {
+                appBlockStatuses[k.toString()] = v == true;
+              });
+            }
           }
+          return true;
         }
-        return true;
+      } catch (e) {
+        debugPrint('[ApiService] sendDeviceControlCommand failed on $endpoint: $e');
       }
-    } catch (e) {
-      debugPrint('[ApiService] sendDeviceControlCommand error: $e');
     }
     return false;
   }
 
   /// Poll / fetch current live device enforcement status from backend
   static Future<Map<String, dynamic>?> fetchDeviceStatus() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/monitor/device-status'),
-      ).timeout(const Duration(seconds: 4));
+    final endpointsToTry = [baseUrl, ...serverEndpoints.where((u) => u != baseUrl)];
+    for (final endpoint in endpointsToTry) {
+      try {
+        final response = await http.get(
+          Uri.parse('$endpoint/monitor/device-status'),
+        ).timeout(const Duration(milliseconds: 1800));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        isDeviceLocked = data['is_locked'] == true;
-        lockMessage = data['lock_message'];
-        isInternetPaused = data['is_internet_paused'] == true;
-        isBedtimeModeActive = data['is_bedtime_mode'] == true;
-        if (data['battery_level'] != null) {
-          childBatteryPercentage = (data['battery_level'] as num).toInt();
+        if (response.statusCode == 200) {
+          baseUrl = endpoint; // remember verified endpoint
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          isDeviceLocked = data['is_locked'] == true;
+          lockMessage = data['lock_message'];
+          isInternetPaused = data['is_internet_paused'] == true;
+          isBedtimeModeActive = data['is_bedtime_mode'] == true;
+          if (data['battery_level'] != null) {
+            childBatteryPercentage = (data['battery_level'] as num).toInt();
+          }
+          if (data['screen_time_limit_hours'] != null) {
+            dailyScreenTimeLimitHours = (data['screen_time_limit_hours'] as num).toDouble();
+          }
+          if (data['screen_time_used_hours'] != null) {
+            currentScreenTimeUsedHours = (data['screen_time_used_hours'] as num).toDouble();
+          }
+          if (data['blocked_apps'] != null && data['blocked_apps'] is Map) {
+            (data['blocked_apps'] as Map).forEach((k, v) {
+              appBlockStatuses[k.toString()] = v == true;
+            });
+          }
+          return data;
         }
-        if (data['screen_time_limit_hours'] != null) {
-          dailyScreenTimeLimitHours = (data['screen_time_limit_hours'] as num).toDouble();
-        }
-        if (data['screen_time_used_hours'] != null) {
-          currentScreenTimeUsedHours = (data['screen_time_used_hours'] as num).toDouble();
-        }
-        if (data['blocked_apps'] != null && data['blocked_apps'] is Map) {
-          (data['blocked_apps'] as Map).forEach((k, v) {
-            appBlockStatuses[k.toString()] = v == true;
-          });
-        }
-        return data;
-      }
-    } catch (e) {
-      debugPrint('[ApiService] fetchDeviceStatus error: $e');
+      } catch (_) {}
     }
     return null;
   }
